@@ -130,6 +130,48 @@
     .ledger-tabs{top:96px;padding:8px 12px 0}
   }
   .table-scroll{scrollbar-width:thin}
+  /* ===== 编码助手 ===== */
+  .code-helper{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fafbfc;overflow:hidden}
+  .code-helper-head{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#f0f3f7;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);user-select:none}
+  .code-helper-head:hover{background:#e8ecf2}
+  .code-helper-head .arrow{transition:.2s;display:inline-block;font-size:10px}
+  .code-helper-head .open .arrow{transform:rotate(90deg)}
+  .code-body{padding:10px 14px;display:none}
+  .code-body.show{display:block}
+  .code-tree{font-size:12px;line-height:1.8}
+  .code-tree .ct-l1{font-weight:700;color:var(--ink);margin-top:6px;padding-left:0}
+  .code-tree .ct-l2{padding-left:18px;color:var(--ink);font-weight:600}
+  .code-tree .ct-l3{padding-left:36px;color:var(--muted)}
+  .code-tree .ct-l4{padding-left:54px;color:var(--gray);font-size:11px}
+  .code-tree span.ct-node{cursor:pointer;padding:1px 4px;border-radius:4px;transition:.1s;display:inline-block}
+  .code-tree span.ct-node:hover{background:var(--accent-soft);color:var(--accent)}
+  .code-tree .ct-code{font-family:Menlo,Consolas,monospace;background:#eef1f5;padding:0 5px;border-radius:4px;margin-right:4px;font-size:11px;color:var(--accent)}
+  .code-hint-bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;padding:8px 10px;background:#fff;border:1px solid var(--line);border-radius:8px;font-size:12px}
+  .code-hint-bar .next-tag{background:var(--green-soft);color:var(--green);padding:2px 8px;border-radius:6px;font-weight:700;font-family:Menlo,Consolas,monospace;font-size:13px;cursor:pointer;border:1px dashed var(--green);transition:.15s}
+  .code-hint-bar .next-tag:hover{background:var(--green);color:#fff}
+  .code-hint-bar .used-info{color:var(--muted);font-size:11px}
+  .code-recent{font-size:11px;color:var(--muted)}
+  .code-recent span{display:inline-block;padding:1px 6px;background:#fff;border:1px solid var(--line);border-radius:4px;margin:2px 3px 2px 0;cursor:pointer;font-family:Menlo,Consolas,monospace;transition:.1s}
+  .code-recent span:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+  /* ===== 看板图表 ===== */
+  .dash-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px}
+  .dash-chart{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-around;padding:6px 4px}
+  .dash-chart svg{max-width:100%}
+  @media(max-width:680px){.dash-grid{grid-template-columns:1fr}}
+  /* ===== 盘点差异 ===== */
+  .balance-ok{color:var(--green);font-weight:600}
+  .balance-neg{color:var(--red);font-weight:600}
+  /* ===== 打印 ===== */
+  @media print{
+    body.print-stock *{visibility:hidden}
+    body.print-stock #stockViewMask, body.print-stock #stockViewMask *{visibility:visible}
+    body.print-stock #stockViewMask{position:absolute;left:0;top:0;right:0;background:#fff;display:block!important;padding:0;z-index:9999}
+    body.print-stock #stockViewMask .foot{display:none}
+    body.print-qr *{visibility:hidden}
+    body.print-qr #qrMask, body.print-qr #qrMask *{visibility:visible}
+    body.print-qr #qrMask{position:absolute;left:0;top:0;right:0;background:#fff;display:block!important;padding:0;z-index:9999}
+    body.print-qr #qrMask .foot{display:none}
+  }
 </style>
 </head>
 <body>
@@ -137,8 +179,10 @@
   <div><h1>仓库与资产管理系统</h1><div class="sub">多台账 · 统一采购 · 全链路溯源</div></div>
   <nav id="nav">
     <button data-view="ledger" class="active">台账</button>
+    <button data-view="dash">看板</button>
     <button data-view="purchase">采购中心</button>
     <button data-view="purchases">采购台账</button>
+    <button data-view="stock">盘点</button>
     <button data-view="warn">预警</button>
     <button data-view="data">数据备份</button>
   </nav>
@@ -224,6 +268,39 @@
     </div>
   </section>
 
+  <!-- 看板 -->
+  <section id="view-dash" style="display:none">
+    <div class="card">
+      <h2>数据看板</h2>
+      <div class="body" style="padding:18px 20px">
+        <div class="stats" id="dashKpi"></div>
+        <div class="dash-grid">
+          <div class="card" style="margin:0"><h2>库存金额（按台账）</h2><div id="dashAmt" class="dash-chart"></div></div>
+          <div class="card" style="margin:0"><h2>物料 ABC 占比</h2><div id="dashAbc" class="dash-chart"></div></div>
+          <div class="card" style="margin:0"><h2>设备状态分布</h2><div id="dashEq" class="dash-chart"></div></div>
+          <div class="card" style="margin:0"><h2>近 6 个月采购金额趋势</h2><div id="dashTrend" class="dash-chart"></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 盘点 -->
+  <section id="view-stock" style="display:none">
+    <div class="stats" id="stockStats"></div>
+    <div class="card">
+      <h2>盘点单</h2>
+      <div style="padding:12px 16px;border-bottom:1px solid var(--line)">
+        <div class="toolbar" style="margin:0">
+          <select id="stockLedger" class="grow"></select>
+          <button class="btn" id="btnNewStock">+ 新建盘点单</button>
+        </div>
+      </div>
+      <div class="table-scroll"><table id="stockTable"><thead><tr>
+        <th>盘点日期</th><th>台账</th><th>盘点人</th><th>项数</th><th>盘盈</th><th>盘亏</th><th>状态</th><th>操作</th>
+      </tr></thead><tbody id="stockBody"></tbody></table></div>
+    </div>
+  </section>
+
   <!-- 明细/溯源 -->
   <section id="view-trace" style="display:none">
     <div class="card">
@@ -265,7 +342,20 @@
 <div class="mask" id="itemMask">
   <div class="modal">
     <h3 id="itemTitle">新增物品</h3>
-    <div class="body"><div class="grid" id="itemFields"></div></div>
+    <div class="body">
+      <div class="grid" id="itemFields"></div>
+      <div class="code-helper" id="codeHelper" style="display:none">
+        <div class="code-helper-head" onclick="toggleCodeHelper()">
+          <span>📋 编码助手 — 物料编码规则树 / 智能提示下一个编号</span>
+          <span class="arrow" id="codeHelpArrow">▶</span>
+        </div>
+        <div class="code-body" id="codeBody">
+          <div class="code-hint-bar" id="codeHintBar"></div>
+          <div class="code-tree" id="codeTree"></div>
+          <div class="code-recent" id="codeRecent"><b>同前缀近期编码：</b></div>
+        </div>
+      </div>
+    </div>
     <div class="foot"><button class="btn ghost" id="itemCancel">取消</button><button class="btn" id="itemSave">保存</button></div>
   </div>
 </div>
@@ -320,6 +410,46 @@
       <div class="table-scroll" style="max-height:40vh"><table id="impPreview"></table></div>
     </div>
     <div class="foot"><button class="btn ghost" id="impCancel">取消</button><button class="btn green" id="impConfirm">确认导入</button></div>
+  </div>
+</div>
+
+<!-- 盘点编辑弹窗 -->
+<div class="mask" id="stockMask">
+  <div class="modal" style="max-width:920px">
+    <h3 id="stockTitle">新建盘点单</h3>
+    <div class="body">
+      <div class="toolbar" style="margin-bottom:10px">
+        <input id="stockOp" class="grow" placeholder="盘点人">
+        <input type="date" id="stockDate" style="max-width:200px">
+      </div>
+      <div class="table-scroll" style="max-height:46vh"><table id="stockEditTable"><thead><tr>
+        <th>编码</th><th>名称</th><th>系统数量</th><th>实盘数量</th><th>差异</th><th>备注</th>
+      </tr></thead><tbody id="stockEditBody"></tbody></table></div>
+    </div>
+    <div class="foot"><button class="btn ghost" id="stockCancel">取消</button><button class="btn" id="stockSave">保存盘点</button></div>
+  </div>
+</div>
+
+<!-- 盘点报告弹窗 -->
+<div class="mask" id="stockViewMask">
+  <div class="modal" style="max-width:920px">
+    <h3 id="stockViewTitle">盘点报告</h3>
+    <div class="body" id="stockViewBody"></div>
+    <div class="foot"><button class="btn ghost" id="stockViewPrint">打印</button><button class="btn" id="stockViewClose">关闭</button></div>
+  </div>
+</div>
+
+<!-- 二维码弹窗 -->
+<div class="mask" id="qrMask">
+  <div class="modal" style="max-width:420px">
+    <h3 id="qrTitle">物品二维码</h3>
+    <div class="body" style="text-align:center">
+      <div id="qrBox" style="display:inline-block;padding:12px;background:#fff;border:1px solid var(--line);border-radius:10px"></div>
+      <div id="qrText" class="muted" style="margin-top:8px"></div>
+      <div class="hint">扫码内容：物品编码（用于现场核对 / 贴标签）</div>
+      <button class="btn ghost" id="qrPrint" style="margin-top:10px">打印标签</button>
+    </div>
+    <div class="foot"><button class="btn" id="qrClose">关闭</button></div>
   </div>
 </div>
 
@@ -394,13 +524,14 @@ let curLedger = "material";
 let editCode = null, unitOp = null, outCode = null, sortKey="seq", sortDir=1;
 
 function initState(){
-  state = { ledgers:{}, purchases:[], seq:{} };
+  state = { ledgers:{}, purchases:[], seq:{}, checks:[] };
   LEDGER_ORDER.forEach(k=>{ state.ledgers[k]={seq:0,items:{}}; state.seq[k]=0; });
 }
 function save(){ localStorage.setItem(STORE, JSON.stringify(state)); }
 function load(){ try{ const s=JSON.parse(localStorage.getItem(STORE)); if(s&&s.ledgers){ state=s;
   // 兼容缺失台账
   LEDGER_ORDER.forEach(k=>{ if(!state.ledgers[k]) state.ledgers[k]={seq:0,items:{}}; if(state.seq[k]==null)state.seq[k]=0; });
+  if(!state.checks) state.checks=[];
   return; } }catch(e){} initState(); }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 function todayStr(){ return new Date().toISOString().slice(0,10); }
@@ -490,6 +621,7 @@ function renderLedger(){
     }).join("")}<td><div class="row-actions">
       <button class="btn sm ghost" onclick="openDetail('${esc(it.code)}')">明细</button>
       <button class="btn sm ghost" onclick="editItem('${esc(it.code)}')">编辑</button>
+      <button class="btn sm ghost" onclick="openQR('${esc(it.code)}')">二维码</button>
     </div></td></tr>`;
   }).join("");
   // 绑定排序
@@ -497,6 +629,204 @@ function renderLedger(){
     const kk=th.dataset.k; if(sortKey===kk)sortDir*=-1; else{sortKey=kk;sortDir=1;} renderLedger(); });
 }
 function colVal(it,k,c){ if(!c)return ""; if(c.cal)return c.cal(it); return it[c.k]||""; }
+
+/* ============ 编码助手（物料） ============ */
+const CODE_TREE = [
+  {c:"01",n:"零部件及辅料",children:[
+    {c:"02",n:"电气类",children:[
+      {c:"01",n:"电气元件（各类电气元器件，如插座、滤波器等）"},
+      {c:"02",n:"接口线缆（成品线束，用于系统间连接）"},
+      {c:"05",n:"裁切线缆（按长度裁剪的电线电缆）"}
+    ]},
+    {c:"03",n:"机械类",children:[
+      {c:"01",n:"机械整/零件（外购的机械总成或需要整件采购的部件）"},
+      {c:"02",n:"标准间及机械辅料（含螺钉、螺母等标准件和少数机械辅料）"},
+      {c:"05",n:"机加件（通过机加工制造的零件）"},
+      {c:"04",n:"钣金件（由钣金工艺制作的零件）"},
+      {c:"05",n:"软胶件（由橡胶或软塑料材料制成的零件）"},
+      {c:"06",n:"塑料件（由注塑塑料或注意加工而成的零件）"}
+    ]},
+    {c:"04",n:"辅助材料",children:[
+      {c:"01",n:"电气辅料（包括热熔、热缩管等辅助材料）"},
+      {c:"02",n:"机械辅料/灌封件（诸如固定变装、安装附件等辅助材料）"}
+    ]},
+    {c:"05",n:"资料/文件",children:[
+      {c:"05",n:"警告标识",children:[
+        {c:"01",n:"主机柜半成品"},
+        {c:"03",n:"导航定位工具"},
+        {c:"03",n:"导航台半成品"},
+        {c:"01",n:"电调模块半成品"}
+      ]}
+    ]}
+  ]},
+  {c:"02",n:"半成品/模块",children:[
+    {c:"05",n:"半成品（组装内）",children:[
+      {c:"01",n:"主机柜半成品"},
+      {c:"03",n:"导航定位工具"},
+      {c:"03",n:"导航台半成品"},
+      {c:"01",n:"电调模块半成品"}
+    ]},
+    {c:"02",n:"半成品（组装外）"}
+  ]},
+  {c:"06",n:"工具类",children:[
+    {c:"01",n:"工具",children:[
+      {c:"01",n:"硬件工具"}
+    ]},
+    {c:"02",n:"资料标识",children:[
+      {c:"01",n:"标签纸"}
+    ]}
+  ]},
+  {c:"09",n:"包装类",children:[
+    {c:"01",n:"包装材料",children:[
+      {c:"01",n:"外包装"}
+    ]},
+    {c:"02",n:"整合包装"}
+  ]}
+];
+
+function buildCodePath(node, prefix){
+  const p = prefix ? prefix+"-"+node.c : node.c;
+  if(!node.children) return [{code:p, name:node.n, leaf:true}];
+  let out=[{code:p, name:node.n, leaf:false}];
+  (node.children||[]).forEach(ch=>out=out.concat(buildCodePath(ch,p)));
+  return out;
+}
+let ALL_CODE_PATHS=[];
+CODE_TREE.forEach(l1=>{ALL_CODE_PATHS=ALL_CODE_PATHS.concat(buildCodePath(l1,""));});
+
+function getMaxSeqForPrefix(prefix){
+  let max=0;
+  Object.values(state.ledgers.material.items||{}).forEach(it=>{
+    const code=it.code||"";
+    // 支持多种分隔符
+    const norm=code.replace(/[／\-—–_]/g,"-");
+    if(norm.startsWith(prefix+"-") || norm.startsWith(prefix)){
+      const tail=norm.substring(prefix.length).replace(/^[\/\-—–_]/,"");
+      const m=tail.match(/^(\d+)$/);
+      if(m){ max=Math.max(max, parseInt(m[1])); }
+    }
+  });
+  return max;
+}
+
+function serialWidthForPrefix(prefix){
+  // 自适应流水号位数：取该前缀下已有最大流水号的位数（物料编码规则：流水号段为 5 位 00000~99999）
+  let w=5; // 默认 5 位（公司 SOP 规定）
+  Object.values(state.ledgers.material.items||{}).forEach(it=>{
+    const code=it.code||"";
+    const norm=code.replace(/[／\-—–_]/g,"-");
+    if(norm.startsWith(prefix+"-") || norm.startsWith(prefix)){
+      const tail=norm.substring(prefix.length).replace(/^[\/\-—–_]/,"");
+      const m=tail.match(/^(\d+)$/);
+      if(m) w=Math.max(w, m[1].length);
+    }
+  });
+  return w;
+}
+
+function suggestNextCode(prefix){
+  // 仅作为“提示”用：基于已有最大流水号 +1，并匹配已有位数风格
+  const max=getMaxSeqForPrefix(prefix);
+  const next=max+1;
+  const w=serialWidthForPrefix(prefix);
+  return prefix+"-"+String(next).padStart(w,"0");
+}
+
+function renderCodeTreeV2(){
+  const el=document.getElementById("codeTree");
+  if(!el)return;
+  function html(node, parentCode){
+    const pc=parentCode?parentCode+"-"+node.c:node.c;
+    node._fullCode=pc;
+    const lv=(pc.match(/-/g)||[]).length+1;
+    const cls="ct-l"+Math.min(lv,4);
+    const hasKids=!!(node.children&&node.children.length);
+    const kidsHtml=hasKids?"<div>"+(node.children.map(ch=>html(ch,pc)).join(""))+"</div>":"";
+    const clickAttr=hasKids?
+      `onclick="event.stopPropagation();fillCodePrefix('${pc}',this)"` :
+      `onclick="event.stopPropagation();fillCodePrefix('${pc}',this)"`;
+    return `<div class="${cls}"><span class="ct-code">${node.c}</span>`+
+      `<span class="ct-node" ${clickAttr}>${esc(node.n)}</span>`+
+      `${kidsHtml}</div>`;
+  }
+  el.innerHTML="<div>"+CODE_TREE.map(n=>html(n,"")).join("")+"</div>";
+}
+
+function fillCodePrefix(fullCode, spanEl){
+  const input=document.getElementById("f_code");
+  if(!input)return;
+  // 只填入“分类前缀 + 末尾横线”，流水号留给用户自己填（支持跳跃编码 / 完全自定义）
+  const prefix=fullCode.endsWith("-")?fullCode:fullCode+"-";
+  input.value=prefix;
+  input.dispatchEvent(new Event("input",{bubbles:true}));
+  input.focus();
+  // 光标移到末尾
+  try{ input.setSelectionRange(input.value.length,input.value.length); }catch(e){}
+  // 高亮被点击的节点
+  document.querySelectorAll(".code-tree .ct-node").forEach(s=>s.style.background="");
+  if(spanEl)spanEl.style.background="var(--accent-soft)";
+  toast("已填入分类前缀："+prefix+"（流水号请自行填写，5位）");
+}
+
+function updateCodeHint(){
+  const bar=document.getElementById("codeHintBar");
+  const recentEl=document.getElementById("codeRecent");
+  if(!bar)return;
+  const input=document.getElementById("f_code");
+  const val=(input&&input.value.trim())||"";
+  // 分析当前输入的前缀
+  let prefix=val;
+  let hint="";
+  let recentHtml="";
+
+  if(val){
+    // 尝试匹配最长的已知前缀
+    let bestMatch="";
+    ALL_CODE_PATHS.forEach(p=>{
+      if(p.code===val || val.startsWith(p.code+"-") || val.startsWith(p.code)){
+        if(p.code.length>bestMatch.length)bestMatch=p.code;
+      }
+    });
+    // 也尝试按输入本身作为前缀
+    prefix=bestMatch||val;
+    const next=suggestNextCode(prefix);
+    const maxUsed=getMaxSeqForPrefix(prefix);
+
+    hint=`<span>当前前缀 <b style="font-family:Menlo,Consolas,monospace;color:var(--accent)">${prefix}</b></span>`;
+    hint+=`<span class="next-tag" onclick="document.getElementById('f_code').value='${next}';document.getElementById('f_code').dispatchEvent(new Event('input',{bubbles:true}))" title="仅作提示，点击才填入；你也可以直接手填任意编号">→ 建议下一个：${next}</span>`;
+    hint+=`<span class="used-info">(同类已编至 ${maxUsed}；可跳跃 / 自定义)</span>`;
+
+    // 同前缀近期编码列表
+    const samePrefix=[];
+    Object.values(state.ledgers.material.items||{}).forEach(it=>{
+      const code=it.code||"";
+      if(code.startsWith(prefix+"-")||code.startsWith(prefix))samePrefix.push(code);
+    });
+    samePrefix.sort().reverse(); // 最新的（编号大的）在前面
+    const top5=samePrefix.slice(0,8);
+    if(top5.length){
+      recentHtml="<b>同前缀已有编码：</b>"+top5.map(c=>`<span onclick="document.getElementById('f_code').value='${esc(c)}';document.getElementById('f_code').dispatchEvent(new Event('input',{bubbles:true}))">${esc(c)}</span>`).join("");
+    } else {
+      recentHtml='<b>同前缀已有编码：</b><span style="color:var(--gray)">（尚无，这将是第一个）</span>';
+    }
+  } else {
+    hint='<span>📝 格式 <b style="font-family:Menlo,Consolas,monospace;color:var(--accent)">XX-XX-XX-XXXXX</b>（大类2位-中类2位-小类2位-流水号5位）。点下方规则树节点填前缀，流水号可跳跃 / 自定义。</span>';
+    recentHtml='<b>最近使用的物料编码：</b>'+(Object.keys(state.ledgers.material.items||{}).slice(-10).reverse().map(c=>`<span onclick="document.getElementById('f_code').value='${esc(c)}';document.getElementById('f_code').dispatchEvent(new Event('input',{bubbles:true}))">${esc(c)}</span>`).join("")||'<span style="color:var(--gray)">（暂无）</span>');
+  }
+
+  bar.innerHTML=hint;
+  recentEl.innerHTML=recentHtml;
+}
+
+let codeHelperOpen=true;
+function toggleCodeHelper(){
+  codeHelperOpen=!codeHelperOpen;
+  const body=document.getElementById("codeBody");
+  const arr=document.getElementById("codeHelpArrow");
+  const head=arr.parentElement;
+  if(codeHelperOpen){body.classList.add("show");arr.classList.add("open");head.classList.add("open");}
+  else{body.classList.remove("show");arr.classList.remove("open");head.classList.remove("open");}
+}
 
 /* ============ 物品表单 ============ */
 function openItemModal(code){
@@ -506,18 +836,40 @@ function openItemModal(code){
   const seq = code?it.seq:(state.seq[k]+1);
   let html="";
   html+=fieldHTML("seq", L.kind==="material"?"序号":"序号", seq, true);
-  html+=fieldHTML("code", L.kind==="material"?"物料编码":"设备编号", code||suggestCode(k), true, code?true:false);
+  // 物料用结构化编码（XX-XX-XX-XXX），默认留空由编码助手引导；设备沿用原前缀
+  const defCode = code ? code : (L.kind==="material" ? "" : suggestCode(k));
+  html+=fieldHTML("code", L.kind==="material"?"物料编码":"设备编号", defCode, true, code?true:false, null, L.kind==="material"?"例如 01020100055（大类2位-中类2位-小类2位-流水号5位）":null);
   if(L.kind==="material"){ L.fields.forEach(f=>html+=fieldHTML(f.key,f.label,it?it[f.key]:"",false,f)); }
   else { html+=fieldHTML("name","名称",it?it.name:"",true); L.fields.forEach(f=>html+=fieldHTML(f.key,f.label,it?it[f.key]:"",false,f)); }
   document.getElementById("itemFields").innerHTML=html;
   if(editCode) document.getElementById("f_code").readOnly=true;
+
+  /* 编码助手（仅物料台账） */
+  const helper=document.getElementById("codeHelper");
+  if(L.kind==="material"){
+    helper.style.display="";
+    codeHelperOpen=true;
+    document.getElementById("codeBody").classList.add("show");
+    document.getElementById("codeHelpArrow").classList.add("open");
+    renderCodeTreeV2();
+    updateCodeHint();
+    // 绑定 input 实时提示
+    const codeInput=document.getElementById("f_code");
+    if(codeInput && !codeInput._codeHintBound){
+      codeInput.addEventListener("input",updateCodeHint);
+      codeInput._codeHintBound=true;
+    }
+  } else {
+    helper.style.display="none";
+  }
+
   document.getElementById("itemMask").classList.add("show");
 }
-function fieldHTML(key,label,val,req,f){
+function fieldHTML(key,label,val,req,f,ph){
   if(f&&f.type==="select"){ const o=f.opts.map(v=>`<option ${v===(val||f.def)?"selected":""}>${v}</option>`).join("");
     return `<div class="field"><label>${label}${req?' <span class="req">*</span>':''}</label><select id="f_${key}">${o}</select></div>`; }
-  const ro = req&&val!==""&&key!=="seq" ? "" : "";
-  return `<div class="field"><label>${label}${req?' <span class="req">*</span>':''}</label><input id="f_${key}" value="${esc(val)}"></div>`;
+  const placeholder = ph?` placeholder="${esc(ph)}"`:"";
+  return `<div class="field"><label>${label}${req?' <span class="req">*</span>':''}</label><input id="f_${key}" value="${esc(val||"")}"${placeholder}></div>`;
 }
 function suggestCode(k){ return def(k).prefix+"-"+String(state.seq[k]+1).padStart(3,"0"); }
 function saveItem(){
@@ -560,7 +912,7 @@ function renderMaterialDetail(k,it,code){
     <div><b>品牌/供货商</b>${esc(it.brand)}</div>
     <div><b>采购来源</b>${esc(it.source)}</div>
     <div><b>现存数量(结余)</b><span class="${bal<0?'balance-neg':''}" style="font-size:16px;font-weight:700">${fmt(bal)}</span></div>
-    <div><button class="btn sm orange" onclick="openOut('${esc(code)}')">登记出库</button></div>
+    <div><button class="btn sm orange" onclick="openOut('${esc(code)}')">登记出库</button> <button class="btn sm ghost" onclick="openQR('${esc(code)}')">二维码</button></div>
   </div>`;
   const list=(it.tx||[]).slice().sort((a,b)=>a.ts-b.ts);
   const timeline=`<div class="timeline">${list.length?list.slice().reverse().map(t=>`
@@ -588,7 +940,7 @@ function renderEquipmentDetail(k,it,code){
     <div><b>责任人</b>${esc(it.owner)}</div>
     ${it.warranty?`<div><b>保修期</b>${esc(it.warranty)}月</div>`:""}
     ${L.calibration?`<div><b>校准周期</b>${esc(it.calCycle)}月</div><div><b>精度</b>${esc(it.accuracy)}</div><div><b>证书号</b>${esc(it.certNo)}</div>`:""}
-    <div><button class="btn sm ghost" onclick="openItemModal('${esc(code)}')">编辑</button></div>
+    <div><button class="btn sm ghost" onclick="openItemModal('${esc(code)}')">编辑</button> <button class="btn sm ghost" onclick="openQR('${esc(code)}')">二维码</button></div>
   </div>`;
   const sum=`<div class="status-sum">
     <span style="background:var(--green-soft);color:var(--green)">在用 ${cc.在用}</span>
@@ -1013,14 +1365,171 @@ function loadSample(){
   save(); renderAll(); toast("已载入示例数据");
 }
 
+/* ============ 看板 / 图表 ============ */
+function itemPrice(it){ const t=(it.tx||[]).filter(x=>x.price>0); return t.length? t[t.length-1].price : 0; }
+function svgBarsH(data){
+  if(!data.length) return '<div class="empty">暂无数据</div>';
+  const max=Math.max(1,...data.map(d=>d.value||0));
+  const w=560, labelW=120, rowH=24, gap=10;
+  const h=data.length*(rowH+gap);
+  let s=`<svg viewBox="0 0 ${w} ${h}" width="100%" style="max-width:${w}px">`;
+  data.forEach((d,i)=>{ const y=i*(rowH+gap); const bw=Math.max(2,Math.round((d.value||0)/max*(w-labelW-46)));
+    s+=`<text x="0" y="${y+rowH/2+4}" font-size="12" fill="#6b7785">${esc(d.label)}</text>`;
+    s+=`<rect x="${labelW}" y="${y}" width="${bw}" height="${rowH}" rx="5" fill="${d.color}"></rect>`;
+    s+=`<text x="${labelW+bw+6}" y="${y+rowH/2+4}" font-size="12" fill="#1f2733">${fmt(d.value)}</text>`; });
+  return s+`</svg>`;
+}
+function svgDonut(seg){
+  const total=seg.reduce((s,x)=>s+(x.value||0),0);
+  const r=58, cx=80, cy=80, C=2*Math.PI*r;
+  let s=`<svg viewBox="0 0 250 170" width="100%" style="max-width:280px">`;
+  s+=`<g transform="translate(${cx},${cy})">`;
+  if(total===0){ s+=`<circle r="${r}" fill="none" stroke="#e3e8ef" stroke-width="20"></circle>`; }
+  else { let off=0; seg.forEach(x=>{ if((x.value||0)<=0)return; const len=(x.value/total)*C;
+    s+=`<circle r="${r}" fill="none" stroke="${x.color}" stroke-width="20" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90)"></circle>`; off+=len; }); }
+  s+=`</g>`;
+  let ly=18; seg.forEach(x=>{ if((x.value||0)<=0)return; s+=`<rect x="170" y="${ly-11}" width="12" height="12" rx="3" fill="${x.color}"></rect><text x="188" y="${ly}" font-size="12" fill="#1f2733">${esc(x.label)} ${(x.value||0)}</text>`; ly+=20; });
+  if(total===0) s+=`<text x="170" y="18" font-size="12" fill="#6b7785">暂无数据</text>`;
+  return s+`</svg>`;
+}
+function renderDashboard(){
+  const amtByLedger=[];
+  LEDGER_ORDER.forEach(k=>{ const L=def(k); let val=0;
+    Object.values(items(k)).forEach(it=>{ if(L.kind==="material"){ val+=matBalance(it)*itemPrice(it); }
+      else { (it.units||[]).forEach(u=>{ val+=(u.price||0); }); } });
+    amtByLedger.push({label:L.name, value:Math.round(val*100)/100, color:
+      k==="material"?"#2f6df0":k==="equip_prod"?"#1f9d5b":k==="equip_insp"?"#e08a1e":k==="equip_office"?"#8a5cf6":"#d23b3b"}); });
+  const matKinds=Object.keys(items("material")).length;
+  let eqUnits=0; LEDGER_ORDER.forEach(k=>{ if(def(k).kind!=="material") Object.values(items(k)).forEach(it=>eqUnits+=eqTotal(it)); });
+  const warn=collectWarnings().length;
+  const totalVal=amtByLedger.reduce((s,x)=>s+x.value,0);
+  document.getElementById("dashKpi").innerHTML=`
+    <div class="stat"><div class="n">${matKinds}</div><div class="l">物料种类</div></div>
+    <div class="stat"><div class="n">${eqUnits}</div><div class="l">设备/资产台数</div></div>
+    <div class="stat"><div class="n">¥${fmt(Math.round(totalVal))}</div><div class="l">库存金额(估)</div></div>
+    <div class="stat"><div class="n ${warn?'warn':''}">${warn}</div><div class="l">预警项</div></div>`;
+  // ABC 占比
+  const abcCount={A:0,B:0,C:0};
+  Object.values(items("material")).forEach(it=>{ const a=(it.abc||"C").toUpperCase(); if(abcCount[a]!=null)abcCount[a]++; });
+  const abcSeg=[{label:"A类",value:abcCount.A,color:"#d23b3b"},{label:"B类",value:abcCount.B,color:"#e08a1e"},{label:"C类",value:abcCount.C,color:"#2f6df0"}];
+  // 设备状态
+  const stc={在用:0,闲置:0,维修:0,报废:0};
+  LEDGER_ORDER.forEach(k=>{ if(def(k).kind!=="material") Object.values(items(k)).forEach(it=>(it.units||[]).forEach(u=>{ if(stc[u.status]!=null)stc[u.status]++; })); });
+  const eqSeg=[{label:"在用",value:stc.在用,color:"#1f9d5b"},{label:"闲置",value:stc.闲置,color:"#8a94a3"},{label:"维修",value:stc.维修,color:"#e08a1e"},{label:"报废",value:stc.报废,color:"#d23b3b"}];
+  // 近6月采购趋势
+  const now=new Date(); const months=[];
+  for(let i=5;i>=0;i--){ const d=new Date(now.getFullYear(), now.getMonth()-i, 1); months.push(d.getFullYear()+"-"+pad2(d.getMonth()+1)); }
+  const trend=months.map(m=> state.purchases.filter(p=>p.date&&p.date.startsWith(m)).reduce((s,p)=>s+Math.round(p.qty*(p.price||0)*100)/100,0));
+  const trendData=months.map((m,i)=>({label:m.slice(2), value:trend[i], color:"#2f6df0"}));
+  document.getElementById("dashAmt").innerHTML=svgBarsH(amtByLedger);
+  document.getElementById("dashAbc").innerHTML=svgDonut(abcSeg);
+  document.getElementById("dashEq").innerHTML=svgDonut(eqSeg);
+  document.getElementById("dashTrend").innerHTML=svgBarsH(trendData);
+}
+
+/* ============ 盘点 ============ */
+function ensureStockLedger(){ const sel=document.getElementById("stockLedger"); if(sel.options.length) return;
+  sel.innerHTML='<option value="">全部台账</option>'+LEDGER_ORDER.map(k=>`<option value="${k}">${def(k).icon} ${def(k).name}</option>`).join("");
+  sel.value=curLedger; }
+function stockSys(k,it){ return def(k).kind==="material"?matBalance(it):eqTotal(it); }
+function renderStockList(){
+  const k=document.getElementById("stockLedger").value;
+  let list=(state.checks||[]).filter(c=>!k||c.ledger===k);
+  list.sort((a,b)=>b.ts-a.ts);
+  document.getElementById("stockBody").innerHTML= list.length? list.map(c=>{
+    const L=def(c.ledger);
+    return `<tr><td>${c.date}</td><td>${L.icon} ${L.name}</td><td>${esc(c.operator)}</td>
+      <td>${c.items.length}</td><td class="balance-ok">${fmt(c.gain)}</td><td class="balance-neg">${fmt(c.loss)}</td>
+      <td><span class="pill ${c.done?'':'warn'}">${c.done?'已盘点':'草稿'}</span></td>
+      <td><div class="row-actions">
+        <button class="btn sm ghost" onclick="viewStock('${c.id}')">查看</button>
+        <button class="btn sm ghost" onclick="printStock('${c.id}')">打印</button>
+        <button class="btn sm ghost" onclick="delStock('${c.id}')">删除</button>
+      </div></td></tr>`;
+  }).join("") : `<tr><td colspan="8" class="empty">暂无盘点单，点“新建盘点单”开始</td></tr>`;
+  // 统计
+  let cnt=0,gain=0,loss=0; (state.checks||[]).forEach(c=>{ cnt++; gain+=c.gain||0; loss+=c.loss||0; });
+  document.getElementById("stockStats").innerHTML=`
+    <div class="stat"><div class="n">${(state.checks||[]).length}</div><div class="l">盘点单总数</div></div>
+    <div class="stat"><div class="n balance-ok">${fmt(Math.round(gain*1000)/1000)}</div><div class="l">累计盘盈</div></div>
+    <div class="stat"><div class="n balance-neg">${fmt(Math.round(loss*1000)/1000)}</div><div class="l">累计盘亏</div></div>`;
+}
+let stockDraft=null;
+function openNewStock(){
+  const k=document.getElementById("stockLedger").value;
+  if(!k){ toast("请先选择台账"); return; }
+  document.getElementById("stockDate").value=todayStr();
+  document.getElementById("stockOp").value="";
+  const rows=Object.values(items(k)).map(it=>({code:it.code, title:itemTitle(it,k), sys:stockSys(k,it)}));
+  stockDraft={ledger:k, rows};
+  document.getElementById("stockEditBody").innerHTML= rows.map((r,i)=>`
+    <tr><td>${esc(r.code)}</td><td>${esc(r.title)}</td><td>${fmt(r.sys)}</td>
+      <td><input id="sp_${i}" type="number" min="0" step="any" style="width:90px" value="${r.sys}"></td>
+      <td id="sd_${i}" class="muted">0</td>
+      <td><input id="sn_${i}" placeholder="备注" style="width:120px"></td></tr>`).join("");
+  rows.forEach((r,i)=>{ const inp=document.getElementById("sp_"+i); inp.oninput=()=>{ const p=parseFloat(inp.value)||0; const d=p-r.sys;
+    const e=document.getElementById("sd_"+i); e.textContent=fmt(d); e.className=d>0?"balance-ok":(d<0?"balance-neg":"muted"); }; });
+  document.getElementById("stockTitle").textContent="新建盘点单 · "+def(k).name;
+  document.getElementById("stockMask").classList.add("show");
+}
+function saveStock(){
+  const k=stockDraft.ledger; const op=document.getElementById("stockOp").value.trim()||"—";
+  const date=document.getElementById("stockDate").value||todayStr();
+  const rows=stockDraft.rows.map((r,i)=>{ const p=parseFloat(document.getElementById("sp_"+i).value)||0; const d=p-r.sys;
+    return {code:r.code, title:r.title, sys:r.sys, physical:p, diff:Math.round(d*1000)/1000, note:document.getElementById("sn_"+i).value.trim()}; });
+  let gain=0,loss=0; rows.forEach(r=>{ if(r.diff>0)gain+=r.diff; else if(r.diff<0)loss+=-r.diff; });
+  const rec={id:uid(), ledger:k, date, operator:op, items:rows, gain:Math.round(gain*1000)/1000, loss:Math.round(loss*1000)/1000, done:true, ts:Date.now()};
+  state.checks=state.checks||[]; state.checks.push(rec); save();
+  document.getElementById("stockMask").classList.remove("show");
+  renderStockList(); renderStats(); toast("盘点已保存");
+}
+function viewStock(id){ const c=(state.checks||[]).find(x=>x.id===id); if(!c)return;
+  const L=def(c.ledger);
+  let html=`<div class="detail-head"><div><b>台账</b>${L.name}</div><div><b>盘点日期</b>${c.date}</div><div><b>盘点人</b>${esc(c.operator)}</div>
+    <div><b>盘盈</b><span class="balance-ok">${fmt(c.gain)}</span></div><div><b>盘亏</b><span class="balance-neg">${fmt(c.loss)}</span></div></div>`;
+  html+=`<div class="table-scroll" style="max-height:none"><table><thead><tr><th>编码</th><th>名称</th><th>系统</th><th>实盘</th><th>差异</th><th>备注</th></tr></thead><tbody>`+
+    c.items.map(r=>`<tr><td>${esc(r.code)}</td><td>${esc(r.title)}</td><td>${fmt(r.sys)}</td><td>${fmt(r.physical)}</td>
+      <td class="${r.diff>0?'balance-ok':(r.diff<0?'balance-neg':'muted')}">${r.diff>0?'+':''}${fmt(r.diff)}</td><td class="muted">${esc(r.note)}</td></tr>`).join("")+`</tbody></table></div>`;
+  document.getElementById("stockViewBody").innerHTML=html;
+  document.getElementById("stockViewTitle").textContent="盘点报告 · "+L.name;
+  window.__curStock=c; document.getElementById("stockViewMask").classList.add("show");
+}
+function printStock(id){ viewStock(id); printPage("print-stock"); }
+function delStock(id){ if(confirm("删除该盘点单？")){ state.checks=state.checks.filter(x=>x.id!==id); save(); renderStockList(); renderStats(); toast("已删除"); } }
+function printPage(cls){ document.body.classList.add(cls); setTimeout(()=>{ window.print(); }, 300);
+  setTimeout(()=>{ document.body.classList.remove(cls); }, 1200); }
+
+/* ============ 二维码标签 ============ */
+let qrLibLoaded=false;
+function ensureQR(cb){
+  if(window.QRCode) return cb();
+  toast("正在加载二维码库…");
+  const s=document.createElement("script");
+  s.src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs/qrcode.min.js";
+  s.onload=()=>cb();
+  s.onerror=()=>toast("无法加载二维码库，请联网后重试");
+  document.head.appendChild(s);
+}
+function openQR(code){
+  const k=curLedger; const it=items(k)[code]; if(!it)return;
+  document.getElementById("qrTitle").textContent="二维码 · "+def(k).name;
+  document.getElementById("qrText").textContent= code + ((it.name||it.desc)?" / "+(it.name||it.desc):"");
+  const box=document.getElementById("qrBox"); box.innerHTML="";
+  ensureQR(()=>{ new QRCode(box,{text:code, width:168, height:168, colorDark:"#1f2733", colorLight:"#ffffff", correctLevel:QRCode.CorrectLevel.M}); });
+  document.getElementById("qrMask").classList.add("show");
+}
+function printQR(){ printPage("print-qr"); }
+
 /* ============ 视图切换 ============ */
-function switchView(v){ ["ledger","purchase","purchases","warn","trace","data"].forEach(id=>{
+function switchView(v){ ["ledger","dash","purchase","purchases","stock","warn","trace","data"].forEach(id=>{
     document.getElementById("view-"+id).style.display=(id===v)?"block":"none"; });
   document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
   if(v==="data")renderStats();
+  if(v==="dash")renderDashboard();
   if(v==="purchases"){ document.getElementById("pfLedger").innerHTML='<option value="">全部台账</option>'+LEDGER_ORDER.map(k=>`<option value="${k}">${def(k).name}</option>`).join(""); renderPurchases(); }
   if(v==="warn")renderWarnings();
   if(v==="purchase")refreshPurchaseLedger();
+  if(v==="stock"){ ensureStockLedger(); renderStockList(); }
 }
 function renderAll(){ renderTabs(); renderStats(); renderLedger();
   // 采购中心下拉
@@ -1065,7 +1574,22 @@ document.getElementById("impRepick").onclick=openImportPicker;
 document.getElementById("impLedger").onchange=()=>{ autoMap(); renderMapping(); rebuildRecords(); renderPreview(); };
 document.getElementById("impMode").onchange=paintValidation;
 document.getElementById("importMask").onclick=e=>{ if(e.target.id==="importMask")closeImport(); };
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeItem(); closeUnit(); closeOut(); closeImport(); } });
+// 盘点 / 二维码
+document.getElementById("btnNewStock").onclick=openNewStock;
+document.getElementById("stockLedger").onchange=renderStockList;
+document.getElementById("stockCancel").onclick=()=>document.getElementById("stockMask").classList.remove("show");
+document.getElementById("stockSave").onclick=saveStock;
+document.getElementById("stockViewClose").onclick=()=>document.getElementById("stockViewMask").classList.remove("show");
+document.getElementById("stockViewPrint").onclick=()=>{ const c=window.__curStock; if(c)printStock(c.id); };
+document.getElementById("stockMask").onclick=e=>{ if(e.target.id==="stockMask")document.getElementById("stockMask").classList.remove("show"); };
+document.getElementById("stockViewMask").onclick=e=>{ if(e.target.id==="stockViewMask")document.getElementById("stockViewMask").classList.remove("show"); };
+document.getElementById("qrClose").onclick=()=>document.getElementById("qrMask").classList.remove("show");
+document.getElementById("qrPrint").onclick=printQR;
+document.getElementById("qrMask").onclick=e=>{ if(e.target.id==="qrMask")document.getElementById("qrMask").classList.remove("show"); };
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeItem(); closeUnit(); closeOut(); closeImport();
+  document.getElementById("stockMask").classList.remove("show");
+  document.getElementById("stockViewMask").classList.remove("show");
+  document.getElementById("qrMask").classList.remove("show"); } });
 
 /* ============ 初始化 ============ */
 load();
