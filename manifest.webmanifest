@@ -1,0 +1,14 @@
+{
+  "name": "仓库物料管理系统",
+  "short_name": "仓库管理",
+  "description": "出入库登记与物料全链路溯源",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f6f9",
+  "theme_color": "#2f6df0",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
