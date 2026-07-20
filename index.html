@@ -130,6 +130,28 @@
     .ledger-tabs{top:96px;padding:8px 12px 0}
   }
   .table-scroll{scrollbar-width:thin}
+  /* 单据 / 打印 */
+  .slip{background:#fff;color:#111;padding:22px 26px;font-size:13px;line-height:1.7;border:1px solid #d8dde3;border-radius:8px}
+  .slip + .slip{margin-top:14px}
+  .slip.page-break{page-break-after:always}
+  .slip-head{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #222;padding-bottom:8px;margin-bottom:10px}
+  .slip-title{font-size:20px;font-weight:800;letter-spacing:4px}
+  .slip-no{font-size:12px;color:#555}
+  .slip-meta{display:flex;gap:24px;margin-bottom:10px;color:#333}
+  .slip-meta b{color:#000}
+  .slip-tbl{width:100%;border-collapse:collapse}
+  .slip-tbl th,.slip-tbl td{border:1px solid #c7ccd1;padding:6px 10px;text-align:left;vertical-align:middle}
+  .slip-tbl th{background:#f3f5f7;width:96px;font-weight:600;white-space:nowrap}
+  .slip-sign{display:flex;gap:28px;margin-top:18px;color:#333;flex-wrap:wrap}
+  .slip-sign span{min-width:160px}
+  @media print{
+    body *{visibility:hidden !important}
+    #slipPrint,#slipPrint *{visibility:visible !important}
+    #slipPrint{position:absolute;left:0;top:0;width:100%;background:#fff}
+    #slipMask .no-print,#slipMask .mask-bg,#slipMask .modal-head,#slipMask .modal-foot{display:none !important}
+    #slipMask{background:#fff !important}
+    .slip{border:1px solid #999}
+  }
   /* ===== 编码助手 ===== */
   .code-helper{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:#fafbfc;overflow:hidden}
   .code-helper-head{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;background:#f0f3f7;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);user-select:none}
@@ -185,6 +207,7 @@
     <button data-view="stock">盘点</button>
     <button data-view="warn">预警</button>
     <button data-view="data">数据备份</button>
+    <button data-view="docs">单据</button>
   </nav>
 </header>
 
@@ -221,7 +244,7 @@
           <div class="field full"><div class="row-actions"><button class="btn sm ghost" id="pNewItem">该台账下新建物品</button>
             <span class="hint">没有对应物品？先新建，再回来填采购</span></div></div>
           <div class="field"><label>采购日期 <span class="req">*</span></label><input type="date" id="pDate"></div>
-          <div class="field"><label id="pQtyLabel">采购数量 <span class="req">*</span></label><input type="number" id="pQty" min="0" step="any" placeholder="0"></div>
+          <div class="field"><label id="pQtyLabel">采购数量 <span class="req">*</span></label><input type="text" id="pQty" placeholder="数字 或 若干"></div>
           <div class="field"><label>品牌/供货商</label><input id="pBrand" placeholder="如：德州仪器"></div>
           <div class="field"><label>采购来源</label><input id="pSource" placeholder="如：京东/直供"></div>
           <div class="field"><label>单价(元)</label><input type="number" id="pPrice" min="0" step="any" placeholder="选填"></div>
@@ -298,6 +321,26 @@
       <div class="table-scroll"><table id="stockTable"><thead><tr>
         <th>盘点日期</th><th>台账</th><th>盘点人</th><th>项数</th><th>盘盈</th><th>盘亏</th><th>状态</th><th>操作</th>
       </tr></thead><tbody id="stockBody"></tbody></table></div>
+    </div>
+  </section>
+
+  <!-- 单据 -->
+  <section id="view-docs" style="display:none">
+    <div class="card">
+      <h2>出入库单据 <span class="muted" id="docCount" style="font-weight:400;font-size:12px"></span></h2>
+      <div style="padding:12px 16px;border-bottom:1px solid var(--line)">
+        <div class="toolbar" style="margin:0">
+          <select id="docType"><option value="">全部类型</option><option value="in">入库单</option><option value="out">领料单</option></select>
+          <input id="docFrom" type="date" title="起始日期">
+          <input id="docTo" type="date" title="截止日期">
+          <input id="docSearch" class="grow" placeholder="搜索 编码 / 名称 / 品牌 / 经办人…">
+          <button class="btn ghost" id="docPrintAll">🖨 打印全部</button>
+          <button class="btn ghost" id="docExport">⬇ 导出清单(JSON)</button>
+        </div>
+      </div>
+      <div class="table-scroll"><table id="docTable"><thead><tr>
+        <th>日期</th><th>类型</th><th>编码</th><th>物品</th><th>数量</th><th>经办人</th><th>操作</th>
+      </tr></thead><tbody id="docBody"></tbody></table></div>
     </div>
   </section>
 
@@ -381,7 +424,7 @@
     <h3>物料出库 / 领用</h3>
     <div class="body"><div class="grid">
       <div class="field"><label>使用日期 <span class="req">*</span></label><input type="date" id="oDate"></div>
-      <div class="field"><label>使用个数 <span class="req">*</span></label><input type="number" id="oQty" min="0" step="any"></div>
+      <div class="field"><label>使用个数 <span class="req">*</span></label><input type="text" id="oQty" placeholder="数字 或 若干"></div>
       <div class="field"><label>用途 / 项目</label><input id="oUse"></div>
       <div class="field"><label>经办人</label><input id="oOp"></div>
       <div class="field full"><label>备注</label><textarea id="oNote"></textarea></div>
@@ -450,6 +493,21 @@
       <button class="btn ghost" id="qrPrint" style="margin-top:10px">打印标签</button>
     </div>
     <div class="foot"><button class="btn" id="qrClose">关闭</button></div>
+  </div>
+</div>
+
+<!-- 单据打印弹窗 -->
+<div class="mask" id="slipMask">
+  <div class="modal" style="max-width:780px">
+    <div class="modal-head no-print" style="display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-bottom:1px solid var(--line)">
+      <h3 style="margin:0">单据预览 / 打印</h3>
+      <button class="btn ghost" onclick="closeSlip()">关闭</button>
+    </div>
+    <div class="body" id="slipPrint"></div>
+    <div class="modal-foot no-print" style="display:flex;gap:8px;justify-content:flex-end;padding:12px 18px;border-top:1px solid var(--line)">
+      <button class="btn ghost" onclick="closeSlip()">关闭</button>
+      <button class="btn green" onclick="window.print()">🖨 打印 / 另存为PDF</button>
+    </div>
   </div>
 </div>
 
@@ -538,14 +596,18 @@ function todayStr(){ return new Date().toISOString().slice(0,10); }
 function addMonths(dateStr,n){ const d=new Date(dateStr+"T00:00:00"); d.setMonth(d.getMonth()+n);
   return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); }
 function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.classList.add("show"); setTimeout(()=>t.classList.remove("show"),1900); }
-function fmt(n){ return (Math.round((n||0)*1000)/1000).toLocaleString("zh-CN"); }
+function fmt(n){ if(typeof n==="number"&&isFinite(n)) return (Math.round(n*1000)/1000).toLocaleString("zh-CN"); if(n==null||n==="") return "0"; return String(n); }
+// 数量助手：允许文字数量（如“若干”）。numQty 返回数字或 null；num 返回有限数字或 0
+function numQty(q){ if(q===null||q===undefined) return null; const s=String(q).trim(); if(s===""||!/^\d*\.?\d+$/.test(s)) return null; const n=Number(s); return isFinite(n)?n:null; }
+function nextBal(prev,type,q){ if(typeof prev!=="number"||q===null) return "若干"; return type==="in"?prev+q:prev-q; }
+function num(v){ const n=Number(v); return isFinite(n)?n:0; }
 function esc(s){ return (s==null?"":s).toString().replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function def(k){ return LEDGER_DEFS[k]; }
 function items(k){ return state.ledgers[k].items; }
 function itemTitle(it,k){ return def(k).kind==="material" ? (it.desc||it.spec||it.code) : (it.name||it.code); }
 
 /* ============ 计算 ============ */
-function matBalance(it){ return (it.tx||[]).reduce((s,t)=>s+(t.type==="in"?t.qty:-t.qty),0); }
+function matBalance(it){ let s=0,text=false; (it.tx||[]).forEach(t=>{ const q=numQty(t.qty); if(q===null)text=true; else s+= t.type==="in"?q:-q; }); return text?"若干":s; }
 function eqCounts(it){ const c={在用:0,闲置:0,维修:0,报废:0}; (it.units||[]).forEach(u=>{ if(c[u.status]!=null)c[u.status]++; });
   return c; }
 function eqTotal(it){ return (it.units||[]).length; }
@@ -920,12 +982,13 @@ function renderMaterialDetail(k,it,code){
       <div class="t">${t.type==="in"?"入库 · 采购":"出库 · 使用"} ${t.type==="in"?"+":""}${fmt(t.qty)} ${esc(it.unit)}</div>
       <div class="d">${t.date} ｜ 结余 ${fmt(t.balance)} ｜ ${esc(t.brand||t.source||t.use||t.note||"")}</div>
     </div></div>`).join(""):'<div class="empty">暂无出入库记录</div>'}</div>`;
-  const table=`<div class="table-scroll" style="max-height:none"><table><thead><tr><th>日期</th><th>类型</th><th>数量</th><th>单价</th><th>结余</th><th>品牌/来源</th><th>用途/备注</th></tr></thead><tbody>
+  const table=`<div class="table-scroll" style="max-height:none"><table><thead><tr><th>日期</th><th>类型</th><th>数量</th><th>单价</th><th>结余</th><th>品牌/来源</th><th>用途/备注</th><th>单据</th></tr></thead><tbody>
     ${list.length?list.map(t=>`<tr><td>${t.date}</td><td><span class="pill ${t.type}">${t.type==="in"?"入库":"出库"}</span></td>
       <td class="${t.type==="in"?"balance-ok":"balance-neg"}">${t.type==="in"?"+":""}${fmt(t.qty)}</td>
       <td>${t.price?fmt(t.price):"—"}</td><td><b>${fmt(t.balance)}</b></td>
-      <td class="muted">${esc(t.brand||t.source||"")}</td><td class="muted">${esc(t.use||t.note||"")}</td></tr>`).join("")
-      :`<tr><td colspan="7" class="empty">暂无出入库记录</td></tr>`}</tbody></table></div>`;
+      <td class="muted">${esc(t.brand||t.source||"")}</td><td class="muted">${esc(t.use||t.note||"")}</td>
+      <td><button class="btn sm ghost" onclick="printTx('${esc(code)}','${esc(t.id)}')">打印</button></td></tr>`).join("")
+      :`<tr><td colspan="8" class="empty">暂无出入库记录</td></tr>`}</tbody></table></div>`;
   document.getElementById("traceResult").innerHTML=head+timeline+table;
 }
 function renderEquipmentDetail(k,it,code){
@@ -1008,13 +1071,19 @@ function openOut(code){ currentDetailCode=code; switchView("trace"); renderDetai
   document.getElementById("outMask").classList.add("show"); }
 function submitOut(){
   const code=currentDetailCode; const it=items(curLedger)[code];
-  const date=document.getElementById("oDate").value; const qty=parseFloat(document.getElementById("oQty").value);
-  if(!date){toast("请填使用日期");return;} if(!(qty>0)){toast("数量需>0");return;}
-  const cur=matBalance(it); if(qty>cur){toast("库存不足！现存"+fmt(cur));return;}
-  it.tx=it.tx||[]; it.tx.push({id:uid(),type:"out",date,qty,balance:cur-qty,
+  const date=document.getElementById("oDate").value; const qtyRaw=document.getElementById("oQty").value.trim();
+  const q=numQty(qtyRaw);
+  if(!date){toast("请填使用日期");return;}
+  if(q===null){ if(qtyRaw===""){toast("请填使用数量（可填数字或“若干”）");return;} }
+  else if(!(q>0)){toast("数量需>0");return;}
+  const cur=matBalance(it);
+  if(typeof cur==="number" && q!==null && q>cur){ toast("库存不足！现存"+fmt(cur)); return; }
+  if(typeof cur!=="number") toast("当前库存为文字量("+cur+")，将按文字记录出库");
+  const bal=nextBal(cur,"out",q);
+  it.tx=it.tx||[]; it.tx.push({id:uid(),type:"out",date,qty:qtyRaw,balance:bal,
     use:document.getElementById("oUse").value.trim(),op:document.getElementById("oOp").value.trim(),
     note:document.getElementById("oNote").value.trim(),ts:Date.now()});
-  save(); closeOut(); renderDetail(code); renderLedger(); renderStats(); toast("出库成功，结余"+fmt(cur-qty));
+  save(); closeOut(); renderDetail(code); renderLedger(); renderStats(); toast("出库成功，结余"+fmt(bal));
 }
 function closeOut(){ document.getElementById("outMask").classList.remove("show"); }
 
@@ -1030,16 +1099,19 @@ function updatePQtyLabel(){ const k=document.getElementById("pLedger").value;
   document.getElementById("pQtyLabel").firstChild.textContent = (def(k).kind==="material"?"采购个数 ":"采购台数 "); }
 function submitPurchase(){
   const k=document.getElementById("pLedger").value; const code=document.getElementById("pItem").value;
-  const date=document.getElementById("pDate").value; const qty=parseFloat(document.getElementById("pQty").value);
-  if(!code){toast("请选择物品");return;} if(!date){toast("请填采购日期");return;} if(!(qty>0)){toast("数量需>0");return;}
-  const it=items(k)[code]; const L=def(k);
+  const date=document.getElementById("pDate").value; const qtyRaw=document.getElementById("pQty").value.trim();
+  if(!code){toast("请选择物品");return;} if(!date){toast("请填采购日期");return;}
+  const L=def(k); let qty;
+  if(L.kind!=="material"){ const q=numQty(qtyRaw); if(!(q>0)){toast("台数需>0整数");return;} qty=q; }
+  else { if(qtyRaw===""){toast("请填采购数量");return;} const q=numQty(qtyRaw); qty=(q===null)?qtyRaw:q; }
+  const it=items(k)[code];
   const rec={id:uid(),ledger:k,code,date,supplier:document.getElementById("pBrand").value.trim(),
-    source:document.getElementById("pSource").value.trim(),qty,price:parseFloat(document.getElementById("pPrice").value)||0,
+    source:document.getElementById("pSource").value.trim(),qty,price:numQty(document.getElementById("pPrice").value)||0,
     op:document.getElementById("pOp").value.trim(),note:document.getElementById("pNote").value.trim(),ts:Date.now()};
   state.purchases.push(rec);
-  if(L.kind==="material"){ it.tx=it.tx||[]; it.tx.push({id:uid(),type:"in",date,qty,balance:matBalance(it)+qty,
+  if(L.kind==="material"){ const prev=matBalance(it); const bal=nextBal(prev,"in",numQty(qtyRaw)); it.tx=it.tx||[]; it.tx.push({id:uid(),type:"in",date,qty:qty,balance:bal,
     brand:rec.supplier,source:rec.source,price:rec.price,op:rec.op,note:rec.note,ts:Date.now()}); }
-  else { const base=it.units.length; for(let i=1;i<=qty;i++){ it.units.push({sn:it.code+"-"+String(base+i).padStart(3,"0"),
+  else { const base=it.units.length; const n=Math.floor(numQty(qtyRaw)||0); for(let i=1;i<=n;i++){ it.units.push({sn:it.code+"-"+String(base+i).padStart(3,"0"),
     status:"闲置",dept:it.dept||"",owner:it.owner||"",buyDate:date,price:rec.price,calLast:"",calNext:"",certNo:it.certNo||""}); } }
   save(); renderAll(); toast("采购成功，已入账");
   ["pQty","pBrand","pSource","pPrice","pOp","pNote"].forEach(id=>document.getElementById(id).value="");
@@ -1053,7 +1125,7 @@ function renderPurchases(){
   if(q) list=list.filter(p=>{ const it=items(p.ledger)[p.code]; const hay=[p.code,itemTitle(it,p.ledger),p.supplier,p.source,p.note].join(" ").toLowerCase(); return hay.includes(q); });
   list.sort((a,b)=>b.ts-a.ts);
   document.getElementById("purBody").innerHTML=list.length?list.map(p=>{
-    const it=items(p.ledger)[p.code]; const amt=p.qty*(p.price||0);
+    const it=items(p.ledger)[p.code]; const amt=num(p.qty)*(p.price||0);
     return `<tr><td>${p.date}</td><td>${def(p.ledger).icon} ${def(p.ledger).name}</td><td>${esc(p.code)}</td>
       <td class="muted">${esc(itemTitle(it,p.ledger))}</td><td>${fmt(p.qty)}</td><td>${p.price?fmt(p.price):"—"}</td>
       <td>${amt?fmt(amt):"—"}</td><td>${esc(p.supplier)}</td><td>${esc(p.source)}</td><td class="muted">${esc(p.note)}</td></tr>`;
@@ -1092,7 +1164,7 @@ function exportLedgerCsv(){ const k=curLedger,L=def(k); const cols=ledgerColumns
 function exportPurchasesCsv(){ const k=document.getElementById("pfLedger").value;
   let list=state.purchases.slice(); if(k)list=list.filter(p=>p.ledger===k); list.sort((a,b)=>b.ts-a.ts);
   const rows=[["采购日期","台账","编码","物品","数量","单价","金额","品牌/供货商","来源","单号/备注"]];
-  list.forEach(p=>{const it=items(p.ledger)[p.code];rows.push([p.date,def(p.ledger).name,p.code,itemTitle(it,p.ledger),p.qty,p.price,p.qty*(p.price||0),p.supplier,p.source,p.note]);});
+  list.forEach(p=>{const it=items(p.ledger)[p.code];rows.push([p.date,def(p.ledger).name,p.code,itemTitle(it,p.ledger),String(p.qty),p.price,num(p.qty)*(p.price||0),p.supplier,p.source,p.note]);});
   const csv="\uFEFF"+rows.map(r=>r.map(c=>`"${String(c??"").replace(/"/g,'""')}"`).join(",")).join("\n");
   download(new Blob([csv],{type:"text/csv;charset=utf-8"}),"采购台账_"+todayStr()+".csv"); }
 function download(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
@@ -1186,7 +1258,7 @@ function validateImport(){
     if(L.kind!=="material" && !String(rec.name||"").trim()) e.name="名称必填";
     if(String(rec.abc||"").trim() && !["A","B","C"].includes(String(rec.abc).trim().toUpperCase())) e.abc="须A/B/C";
     if(String(rec.seq||"").trim() && isNaN(parseInt(rec.seq))) e.seq="须整数";
-    if(String(rec.qty||"").trim()!=="" && !(parseFloat(rec.qty)>=0)) e.qty="须≥0数字";
+    if(String(rec.qty||"").trim()!=="" && !/^-?\d*\.?\d+$/.test(String(rec.qty).trim())) e.qty="须为数字或文字(如若干)";
     if(String(rec.price||"").trim()!=="" && isNaN(parseFloat(rec.price))) e.price="须数字";
     if(String(rec.date||"").trim() && !normalizeDate(rec.date)) e.date="日期无效";
     impErrs.push(e);
@@ -1305,15 +1377,15 @@ function doImport(){
       else if(!exists && it[f.key]==null) it[f.key]=""; });
     items(k)[code]=it; state.seq[k]=Math.max(state.seq[k]||0, it.seq||0);
     if(exists) updated++; else added++;
-    const qty=parseFloat(rec.qty);
-    if(genTx && qty>0){
+    const qtyRaw=String(rec.qty==null?"":rec.qty).trim();
+    if(genTx && qtyRaw!==""){
       const date=String(rec.date).trim()?(normalizeDate(rec.date)||todayStr()):todayStr();
-      const price=parseFloat(rec.price)||0;
-      state.purchases.push({id:uid(),ledger:k,code,date,supplier:it.brand||it.maker||"",source:it.source||"",qty,price,op:"",note:"导入生成",ts:Date.now()+i});
-      if(L.kind==="material"){ it.tx=it.tx||[]; it.tx.push({id:uid(),type:"in",date,qty,balance:matBalance(it)+qty,brand:it.brand||"",source:it.source||"",price,op:"",note:"导入期初/采购",ts:Date.now()+i}); txs++; }
-      else { const n=Math.floor(qty), base=it.units.length;
+      const price=numQty(rec.price)||0; const q=numQty(qtyRaw);
+      state.purchases.push({id:uid(),ledger:k,code,date,supplier:it.brand||it.maker||"",source:it.source||"",qty:qtyRaw,price,op:"",note:"导入生成",ts:Date.now()+i});
+      if(L.kind==="material"){ const prev=matBalance(it); const bal=nextBal(prev,"in",q); it.tx=it.tx||[]; it.tx.push({id:uid(),type:"in",date,qty:qtyRaw,balance:bal,brand:it.brand||"",source:it.source||"",price,op:"",note:"导入期初/采购",ts:Date.now()+i}); txs++; }
+      else { const n=Math.floor(q||0); if(n>0){ const base=it.units.length;
         for(let j=1;j<=n;j++){ it.units.push({sn:code+"-"+String(base+j).padStart(3,"0"),status:"闲置",dept:it.dept||"",owner:it.owner||"",buyDate:date,price,calLast:"",calNext:"",certNo:it.certNo||""}); units++; }
-        if(L.calibration){ it.units.forEach(u=>{ if(!u.calNext){ u.calLast=date; u.calNext=addMonths(date,parseInt(it.calCycle)||12); } }); } }
+        if(L.calibration){ it.units.forEach(u=>{ if(!u.calNext){ u.calLast=date; u.calNext=addMonths(date,parseInt(it.calCycle)||12); } }); } } }
     }
   });
   save(); closeImport();
@@ -1395,7 +1467,7 @@ function svgDonut(seg){
 function renderDashboard(){
   const amtByLedger=[];
   LEDGER_ORDER.forEach(k=>{ const L=def(k); let val=0;
-    Object.values(items(k)).forEach(it=>{ if(L.kind==="material"){ val+=matBalance(it)*itemPrice(it); }
+    Object.values(items(k)).forEach(it=>{ if(L.kind==="material"){ val+=num(matBalance(it))*itemPrice(it); }
       else { (it.units||[]).forEach(u=>{ val+=(u.price||0); }); } });
     amtByLedger.push({label:L.name, value:Math.round(val*100)/100, color:
       k==="material"?"#2f6df0":k==="equip_prod"?"#1f9d5b":k==="equip_insp"?"#e08a1e":k==="equip_office"?"#8a5cf6":"#d23b3b"}); });
@@ -1419,7 +1491,7 @@ function renderDashboard(){
   // 近6月采购趋势
   const now=new Date(); const months=[];
   for(let i=5;i>=0;i--){ const d=new Date(now.getFullYear(), now.getMonth()-i, 1); months.push(d.getFullYear()+"-"+pad2(d.getMonth()+1)); }
-  const trend=months.map(m=> state.purchases.filter(p=>p.date&&p.date.startsWith(m)).reduce((s,p)=>s+Math.round(p.qty*(p.price||0)*100)/100,0));
+  const trend=months.map(m=> state.purchases.filter(p=>p.date&&p.date.startsWith(m)).reduce((s,p)=>s+Math.round(num(p.qty)*(p.price||0)*100)/100,0));
   const trendData=months.map((m,i)=>({label:m.slice(2), value:trend[i], color:"#2f6df0"}));
   document.getElementById("dashAmt").innerHTML=svgBarsH(amtByLedger);
   document.getElementById("dashAbc").innerHTML=svgDonut(abcSeg);
@@ -1521,7 +1593,7 @@ function openQR(code){
 function printQR(){ printPage("print-qr"); }
 
 /* ============ 视图切换 ============ */
-function switchView(v){ ["ledger","dash","purchase","purchases","stock","warn","trace","data"].forEach(id=>{
+function switchView(v){ ["ledger","dash","purchase","purchases","stock","warn","trace","data","docs"].forEach(id=>{
     document.getElementById("view-"+id).style.display=(id===v)?"block":"none"; });
   document.querySelectorAll("#nav button").forEach(b=>b.classList.toggle("active",b.dataset.view===v));
   if(v==="data")renderStats();
@@ -1530,11 +1602,66 @@ function switchView(v){ ["ledger","dash","purchase","purchases","stock","warn","
   if(v==="warn")renderWarnings();
   if(v==="purchase")refreshPurchaseLedger();
   if(v==="stock"){ ensureStockLedger(); renderStockList(); }
+  if(v==="docs")renderDocs();
 }
 function renderAll(){ renderTabs(); renderStats(); renderLedger();
   // 采购中心下拉
   if(document.getElementById("pLedger").options.length===0) refreshPurchaseLedger();
   renderPurchases(); }
+
+/* ============ 单据（入库单 / 领料单） ============ */
+let docList=[];
+function collectDocs(){
+  const docs=[];
+  LEDGER_ORDER.forEach(k=>{ const L=def(k); if(L.kind!=="material") return;
+    Object.values(items(k)).forEach(it=>{ (it.tx||[]).forEach(t=>docs.push({k,code:it.code,it,t})); }); });
+  docs.sort((a,b)=>b.t.ts-a.t.ts); return docs;
+}
+function renderDocs(){
+  const all=collectDocs();
+  const type=document.getElementById("docType").value;
+  const q=document.getElementById("docSearch").value.trim().toLowerCase();
+  const from=document.getElementById("docFrom").value, to=document.getElementById("docTo").value;
+  let list=all.filter(d=> type===""||d.t.type===type);
+  if(from) list=list.filter(d=>d.t.date>=from);
+  if(to) list=list.filter(d=>d.t.date<=to);
+  if(q) list=list.filter(d=>{ const hay=[d.code,itemTitle(d.it,d.k),d.t.brand,d.t.source,d.t.use,d.t.note,d.t.op].join(" ").toLowerCase(); return hay.includes(q); });
+  docList=list;
+  document.getElementById("docCount").textContent="共 "+list.length+" 张";
+  document.getElementById("docBody").innerHTML=list.length?list.map((d,i)=>{
+    const t=d.t,it=d.it;
+    return `<tr><td>${esc(t.date)}</td><td><span class="pill ${t.type}">${t.type==="in"?"入库":"出库"}</span></td>
+      <td>${esc(d.code)}</td><td class="muted">${esc(itemTitle(it,d.k))}</td>
+      <td>${esc(String(t.qty))} ${esc(it.unit||"")}</td><td class="muted">${esc(t.op||"/")}</td>
+      <td><button class="btn sm ghost" onclick="printDoc(${i})">打印</button></td></tr>`;
+  }).join(""):`<tr><td colspan="7" class="empty">暂无出入库单据（先做几笔采购入库 / 出库领用）</td></tr>`;
+}
+function docNo(t){ return (t.type==="in"?"RK":"LL")+(t.date||"").replace(/-/g,"")+"-"+String(t.id).slice(-4).toUpperCase(); }
+function slipHTML(it,k,t,last){
+  const isOut=t.type==="out"; const title=itemTitle(it,k);
+  const amt=(numQty(t.qty)!==null&&t.price)?numQty(t.qty)*t.price:null;
+  const rows=[
+    `<tr><th>物料编码</th><td>${esc(it.code)}</td><th>物品名称</th><td colspan="3">${esc(title)}</td></tr>`,
+    `<tr><th>规格/图号</th><td colspan="3">${esc(it.spec||it.desc||"/")}</td><th>单位</th><td>${esc(it.unit||"/")}</td></tr>`,
+    `<tr><th>数量</th><td>${esc(String(t.qty))}</td><th>单价</th><td>${t.price?fmt(t.price):"—"}</td><th>金额</th><td>${amt?fmt(amt):"—"}</td></tr>`,
+    `<tr><th>品牌/供货商</th><td colspan="3">${esc(t.brand||"/")}</td><th>来源</th><td>${esc(t.source||"/")}</td></tr>`,
+    `<tr><th>${isOut?"用途":"备注"}</th><td colspan="5">${esc((isOut?t.use:t.note)||"/")}</td></tr>`
+  ];
+  if(isOut) rows.push(`<tr><th>出库后结余</th><td colspan="5">${esc(String(t.balance))}</td></tr>`);
+  return `<div class="slip${last?"":" page-break"}">
+    <div class="slip-head"><span class="slip-title">${isOut?"领 料 单":"入 库 单"}</span><span class="slip-no">单号：${esc(docNo(t))}</span></div>
+    <div class="slip-meta"><span>日期：<b>${esc(t.date||"/")}</b></span><span>经办人：<b>${esc(t.op||"/")}</b></span></div>
+    <table class="slip-tbl">${rows.join("")}</table>
+    <div class="slip-sign"><span>${isOut?"领用人":"收货人"}：＿＿＿＿＿＿</span><span>保管员：＿＿＿＿＿＿</span><span>主管：＿＿＿＿＿＿</span></div>
+  </div>`;
+}
+function printDoc(i){ const d=docList[i]; if(!d)return; document.getElementById("slipPrint").innerHTML=slipHTML(d.it,d.k,d.t,true); document.getElementById("slipMask").classList.add("show"); }
+function printAllDocs(){ if(!docList.length){toast("无可打印单据");return;} document.getElementById("slipPrint").innerHTML=docList.map((d,i)=>slipHTML(d.it,d.k,d.t,i===docList.length-1)).join(""); document.getElementById("slipMask").classList.add("show"); }
+function printTx(code,txid){ const it=items(curLedger)[code]; if(!it)return; const t=(it.tx||[]).find(x=>x.id===txid); if(!t)return; document.getElementById("slipPrint").innerHTML=slipHTML(it,curLedger,t,true); document.getElementById("slipMask").classList.add("show"); }
+function closeSlip(){ document.getElementById("slipMask").classList.remove("show"); }
+function exportDocsJSON(){ if(!docList.length){toast("暂无单据可导出");return;}
+  const arr=docList.map(d=>({单号:docNo(d.t),类型:d.t.type==="in"?"入库":"出库",日期:d.t.date,编码:d.code,物品:itemTitle(d.it,d.k),数量:String(d.t.qty),单位:d.it.unit||"",单价:d.t.price||"",金额:(numQty(d.t.qty)!==null&&d.t.price)?numQty(d.t.qty)*d.t.price:"",经办人:d.t.op||"",品牌:d.t.brand||"",来源:d.t.source||"",用途:d.t.use||"",备注:d.t.note||"",结余:String(d.t.balance)}));
+  download(new Blob([JSON.stringify(arr,null,2)],{type:"application/json"}),"出入库单据_"+todayStr()+".json"); }
 
 /* ============ 事件 ============ */
 document.querySelectorAll("#nav button").forEach(b=>b.onclick=()=>switchView(b.dataset.view));
@@ -1586,10 +1713,19 @@ document.getElementById("stockViewMask").onclick=e=>{ if(e.target.id==="stockVie
 document.getElementById("qrClose").onclick=()=>document.getElementById("qrMask").classList.remove("show");
 document.getElementById("qrPrint").onclick=printQR;
 document.getElementById("qrMask").onclick=e=>{ if(e.target.id==="qrMask")document.getElementById("qrMask").classList.remove("show"); };
+// 单据
+document.getElementById("docType").onchange=renderDocs;
+document.getElementById("docFrom").onchange=renderDocs;
+document.getElementById("docTo").onchange=renderDocs;
+document.getElementById("docSearch").oninput=renderDocs;
+document.getElementById("docPrintAll").onclick=printAllDocs;
+document.getElementById("docExport").onclick=exportDocsJSON;
+document.getElementById("slipMask").onclick=e=>{ if(e.target.id==="slipMask")closeSlip(); };
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeItem(); closeUnit(); closeOut(); closeImport();
   document.getElementById("stockMask").classList.remove("show");
   document.getElementById("stockViewMask").classList.remove("show");
-  document.getElementById("qrMask").classList.remove("show"); } });
+  document.getElementById("qrMask").classList.remove("show");
+  closeSlip(); } });
 
 /* ============ 初始化 ============ */
 load();
