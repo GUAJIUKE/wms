@@ -129,6 +129,14 @@
     .modal{max-width:100%}
     .ledger-tabs{top:96px;padding:8px 12px 0}
   }
+  .inv-prev{margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .inv-prev img{max-width:92px;max-height:92px;border-radius:6px;border:1px solid var(--line)}
+  .inv-prev .pdf-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;background:var(--accent-soft);border-radius:6px;font-size:13px;color:var(--accent)}
+  .inv-prev .rm{margin-left:2px;cursor:pointer;color:var(--gray);border:none;background:none;font-size:18px;line-height:1}
+  .inv-prev .rm:hover{color:var(--red)}
+  #invBody img{max-width:100%;border-radius:8px}
+  #invBody iframe{width:100%;height:72vh;border:none;border-radius:8px;background:#fff}
+  #invBody .inv-open{display:inline-block;margin-top:10px;color:var(--accent);text-decoration:underline;font-size:14px}
   .table-scroll{scrollbar-width:thin}
   /* 单据 / 打印 */
   .slip{background:#fff;color:#111;padding:22px 26px;font-size:13px;line-height:1.7;border:1px solid #d8dde3;border-radius:8px}
@@ -250,6 +258,10 @@
           <div class="field"><label>单价(元)</label><input type="number" id="pPrice" min="0" step="any" placeholder="选填"></div>
           <div class="field"><label>经办人</label><input id="pOp" placeholder="选填"></div>
           <div class="field full"><label>发票/单号/备注</label><textarea id="pNote" placeholder="发票号、采购单号、批次等"></textarea></div>
+          <div class="field full"><label>发票附件（选填，可上传图片或 PDF）</label>
+            <input type="file" id="pInvoice" accept="image/*,application/pdf">
+            <div id="pInvoicePrev" class="inv-prev"></div>
+          </div>
         </div>
         <div style="margin-top:14px"><button class="btn green" id="btnPSubmit">确认采购</button>
           <span class="hint" id="pPreview" style="margin-left:10px"></span></div>
@@ -272,10 +284,13 @@
           <select id="pfLedger" class="grow"></select>
           <input id="pfSearch" class="grow" placeholder="搜索 编码/物品/供应商…">
           <button class="btn ghost" id="btnExpPur">导出CSV</button>
+          <button class="btn ghost" id="btnExpInv">导出含发票(JSON)</button>
+          <button class="btn ghost" id="btnImpInv">导入发票(JSON)</button>
+          <input type="file" id="invFileInput" accept=".json" style="display:none">
         </div>
       </div>
       <div class="table-scroll"><table id="purTable"><thead><tr>
-        <th>采购日期</th><th>台账</th><th>编码</th><th>物品</th><th>数量</th><th>单价</th><th>金额</th><th>品牌/供货商</th><th>来源</th><th>单号/备注</th>
+        <th>采购日期</th><th>台账</th><th>编码</th><th>物品</th><th>数量</th><th>单价</th><th>金额</th><th>品牌/供货商</th><th>来源</th><th>单号/备注</th><th>发票</th>
       </tr></thead><tbody id="purBody"></tbody></table></div>
     </div>
   </section>
@@ -511,6 +526,14 @@
   </div>
 </div>
 
+<!-- 发票查看器 -->
+<div class="mask" id="invMask">
+  <div class="modal" style="max-width:780px">
+    <h3 id="invTitle">发票</h3>
+    <div class="body" id="invBody" style="text-align:center"></div>
+    <div class="foot"><button class="btn ghost" onclick="closeInv()">关闭</button></div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1097,24 +1120,71 @@ function refreshPurchaseLedger(){ const sel=document.getElementById("pLedger");
   sel.value=curLedger; fillItemSelect(document.getElementById("pItem"),curLedger); updatePQtyLabel(); }
 function updatePQtyLabel(){ const k=document.getElementById("pLedger").value;
   document.getElementById("pQtyLabel").firstChild.textContent = (def(k).kind==="material"?"采购个数 ":"采购台数 "); }
-function submitPurchase(){
+function compressImage(file){ return new Promise((resolve,reject)=>{
+  const r=new FileReader();
+  r.onerror=()=>reject(new Error("读取失败"));
+  r.onload=()=>{ const img=new Image();
+    img.onload=()=>{ let w=img.width,h=img.height; const max=1400;
+      if(w>max||h>max){ const s=Math.min(max/w,max/h); w=Math.round(w*s); h=Math.round(h*s); }
+      const c=document.createElement("canvas"); c.width=w; c.height=h;
+      c.getContext("2d").drawImage(img,0,0,w,h);
+      resolve(c.toDataURL("image/jpeg",0.8)); };
+    img.onerror=()=>reject(new Error("图片解析失败"));
+    img.src=r.result; };
+  r.readAsDataURL(file); }); }
+async function readInvoiceFile(file){
+  const name=file.name||"发票"; const mime=file.type||"application/octet-stream"; let data;
+  if(mime.startsWith("image/")){ data=await compressImage(file); }
+  else { data=await new Promise((res,rej)=>{ const r=new FileReader(); r.onerror=()=>rej(new Error("读取失败")); r.onload=()=>res(r.result); r.readAsDataURL(file); }); }
+  return {name,mime,data};
+}
+function storageWarn(){ try{ if(JSON.stringify(state).length>4*1024*1024) toast("⚠️ 本地数据已超 4MB（发票占空间较多），建议导出备份后精简"); }catch(e){} }
+function clearInvoice(){ document.getElementById("pInvoice").value=""; document.getElementById("pInvoicePrev").innerHTML=""; }
+function openInv(id){ const p=state.purchases.find(x=>x.id===id); if(!p||!p.invoice)return; const iv=p.invoice;
+  document.getElementById("invTitle").textContent="发票 — "+iv.name;
+  let body= iv.mime.startsWith("image/") ? `<img src="${iv.data}" alt="发票">`
+    : `<iframe src="${iv.data}"></iframe><br><a class="inv-open" href="${iv.data}" download="${esc(iv.name)}" target="_blank">在新标签打开 / 下载</a>`;
+  document.getElementById("invBody").innerHTML=body;
+  document.getElementById("invMask").classList.add("show"); }
+function closeInv(){ document.getElementById("invMask").classList.remove("show"); document.getElementById("invBody").innerHTML=""; }
+function exportInvoicesJson(){
+  const data=state.purchases.filter(p=>p.invoice).map(p=>({ id:p.id,date:p.date,ledger:p.ledger,code:p.code,
+    name:itemTitle(items(p.ledger)[p.code],p.ledger),supplier:p.supplier,invoice:p.invoice }));
+  if(!data.length){ toast("暂无带发票的采购记录"); return; }
+  download(new Blob([JSON.stringify({type:"wms-invoices",exportedAt:Date.now(),count:data.length,items:data},null,2)],{type:"application/json"}),
+    "采购发票_"+todayStr()+".json");
+  toast("已导出 "+data.length+" 张发票（含图片/PDF）"); }
+function importInvoicesJson(){ const inp=document.getElementById("invFileInput"); inp.value=""; inp.click(); }
+function onInvoiceFile(e){ const f=e.target.files[0]; if(!f)return;
+  const r=new FileReader(); r.onload=()=>{ let j; try{ j=JSON.parse(String(r.result)); }catch(err){ toast("JSON解析失败"); return; }
+    const arr=Array.isArray(j)?j:(j.items||[]); let n=0;
+    arr.forEach(x=>{ if(!x||!x.invoice)return; const p=state.purchases.find(y=>y.id===x.id); if(p){ p.invoice=x.invoice; n++; } });
+    if(n){ save(); renderAll(); toast("已回灌 "+n+" 张发票到对应采购记录"); } else { toast("未匹配到可关联的采购记录（需相同采购ID）"); } };
+  r.readAsText(f); }
+async function submitPurchase(){
   const k=document.getElementById("pLedger").value; const code=document.getElementById("pItem").value;
   const date=document.getElementById("pDate").value; const qtyRaw=document.getElementById("pQty").value.trim();
   if(!code){toast("请选择物品");return;} if(!date){toast("请填采购日期");return;}
   const L=def(k); let qty;
   if(L.kind!=="material"){ const q=numQty(qtyRaw); if(!(q>0)){toast("台数需>0整数");return;} qty=q; }
   else { if(qtyRaw===""){toast("请填采购数量");return;} const q=numQty(qtyRaw); qty=(q===null)?qtyRaw:q; }
+  const btn=document.getElementById("btnPSubmit"); btn.disabled=true; btn.textContent="处理中…";
+  let invoice=null; const f=document.getElementById("pInvoice").files[0];
+  if(f){ try{ invoice=await readInvoiceFile(f); }catch(e){ btn.disabled=false; btn.textContent="确认采购"; toast("发票读取失败："+e.message); return; } }
   const it=items(k)[code];
   const rec={id:uid(),ledger:k,code,date,supplier:document.getElementById("pBrand").value.trim(),
     source:document.getElementById("pSource").value.trim(),qty,price:numQty(document.getElementById("pPrice").value)||0,
-    op:document.getElementById("pOp").value.trim(),note:document.getElementById("pNote").value.trim(),ts:Date.now()};
+    op:document.getElementById("pOp").value.trim(),note:document.getElementById("pNote").value.trim(),invoice,ts:Date.now()};
   state.purchases.push(rec);
   if(L.kind==="material"){ const prev=matBalance(it); const bal=nextBal(prev,"in",numQty(qtyRaw)); it.tx=it.tx||[]; it.tx.push({id:uid(),type:"in",date,qty:qty,balance:bal,
     brand:rec.supplier,source:rec.source,price:rec.price,op:rec.op,note:rec.note,ts:Date.now()}); }
   else { const base=it.units.length; const n=Math.floor(numQty(qtyRaw)||0); for(let i=1;i<=n;i++){ it.units.push({sn:it.code+"-"+String(base+i).padStart(3,"0"),
     status:"闲置",dept:it.dept||"",owner:it.owner||"",buyDate:date,price:rec.price,calLast:"",calNext:"",certNo:it.certNo||""}); } }
-  save(); renderAll(); toast("采购成功，已入账");
+  save(); renderAll(); storageWarn();
+  btn.disabled=false; btn.textContent="确认采购";
   ["pQty","pBrand","pSource","pPrice","pOp","pNote"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("pInvoice").value=""; document.getElementById("pInvoicePrev").innerHTML="";
+  toast(invoice?"采购成功，已入账（含发票）":"采购成功，已入账");
 }
 
 /* ============ 采购台账 ============ */
@@ -1128,8 +1198,9 @@ function renderPurchases(){
     const it=items(p.ledger)[p.code]; const amt=num(p.qty)*(p.price||0);
     return `<tr><td>${p.date}</td><td>${def(p.ledger).icon} ${def(p.ledger).name}</td><td>${esc(p.code)}</td>
       <td class="muted">${esc(itemTitle(it,p.ledger))}</td><td>${fmt(p.qty)}</td><td>${p.price?fmt(p.price):"—"}</td>
-      <td>${amt?fmt(amt):"—"}</td><td>${esc(p.supplier)}</td><td>${esc(p.source)}</td><td class="muted">${esc(p.note)}</td></tr>`;
-  }).join(""):`<tr><td colspan="10" class="empty">暂无采购记录</td></tr>`;
+      <td>${amt?fmt(amt):"—"}</td><td>${esc(p.supplier)}</td><td>${esc(p.source)}</td><td class="muted">${esc(p.note)}</td>
+      <td>${p.invoice?`<button class="btn sm ghost" onclick="openInv('${esc(p.id)}')">📎 ${esc(p.invoice.name.slice(0,8))}</button>`:"—"}</td></tr>`;
+  }).join(""):`<tr><td colspan="11" class="empty">暂无采购记录</td></tr>`;
 }
 
 /* ============ 预警 ============ */
@@ -1163,8 +1234,8 @@ function exportLedgerCsv(){ const k=curLedger,L=def(k); const cols=ledgerColumns
   download(new Blob([csv],{type:"text/csv;charset=utf-8"}),"台账_"+L.name+"_"+todayStr()+".csv"); }
 function exportPurchasesCsv(){ const k=document.getElementById("pfLedger").value;
   let list=state.purchases.slice(); if(k)list=list.filter(p=>p.ledger===k); list.sort((a,b)=>b.ts-a.ts);
-  const rows=[["采购日期","台账","编码","物品","数量","单价","金额","品牌/供货商","来源","单号/备注"]];
-  list.forEach(p=>{const it=items(p.ledger)[p.code];rows.push([p.date,def(p.ledger).name,p.code,itemTitle(it,p.ledger),String(p.qty),p.price,num(p.qty)*(p.price||0),p.supplier,p.source,p.note]);});
+  const rows=[["采购日期","台账","编码","物品","数量","单价","金额","品牌/供货商","来源","单号/备注","发票"]];
+  list.forEach(p=>{const it=items(p.ledger)[p.code];rows.push([p.date,def(p.ledger).name,p.code,itemTitle(it,p.ledger),String(p.qty),p.price,num(p.qty)*(p.price||0),p.supplier,p.source,p.note,p.invoice?p.invoice.name:"—"]);});
   const csv="\uFEFF"+rows.map(r=>r.map(c=>`"${String(c??"").replace(/"/g,'""')}"`).join(",")).join("\n");
   download(new Blob([csv],{type:"text/csv;charset=utf-8"}),"采购台账_"+todayStr()+".csv"); }
 function download(blob,name){ const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); URL.revokeObjectURL(a.href); }
@@ -1713,6 +1784,14 @@ document.getElementById("stockViewMask").onclick=e=>{ if(e.target.id==="stockVie
 document.getElementById("qrClose").onclick=()=>document.getElementById("qrMask").classList.remove("show");
 document.getElementById("qrPrint").onclick=printQR;
 document.getElementById("qrMask").onclick=e=>{ if(e.target.id==="qrMask")document.getElementById("qrMask").classList.remove("show"); };
+// 发票
+document.getElementById("btnExpInv").onclick=exportInvoicesJson;
+document.getElementById("btnImpInv").onclick=importInvoicesJson;
+document.getElementById("invFileInput").onchange=onInvoiceFile;
+document.getElementById("invMask").onclick=e=>{ if(e.target.id==="invMask")closeInv(); };
+document.getElementById("pInvoice").onchange=()=>{ const f=document.getElementById("pInvoice").files[0]; const prev=document.getElementById("pInvoicePrev"); prev.innerHTML=""; if(!f)return;
+  if(f.type.startsWith("image/")){ const r=new FileReader(); r.onload=()=>{ prev.innerHTML=`<img src="${r.result}"><button class="rm" title="移除" onclick="clearInvoice()">×</button>`; }; r.readAsDataURL(f); }
+  else { prev.innerHTML=`<span class="pdf-chip">📄 ${esc(f.name)}</span><button class="rm" title="移除" onclick="clearInvoice()">×</button>`; } };
 // 单据
 document.getElementById("docType").onchange=renderDocs;
 document.getElementById("docFrom").onchange=renderDocs;
@@ -1725,6 +1804,7 @@ document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeItem(); clos
   document.getElementById("stockMask").classList.remove("show");
   document.getElementById("stockViewMask").classList.remove("show");
   document.getElementById("qrMask").classList.remove("show");
+  document.getElementById("invMask").classList.remove("show");
   closeSlip(); } });
 
 /* ============ 初始化 ============ */
